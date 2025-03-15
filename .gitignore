@@ -1,174 +1,112 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+# @ VideoGIF
 
-# C extensions
-*.so
+# Этот скрипт является отличным инструментом для создания пиксельных анимаций в формате GIF. Он подходит как для начинающих, так и для опытных пользователей, которым нужно быстро создать анимацию для веб-страниц, графических проектов или социальных сетей. В сочетании с возможностью настройки качества и параметров изображения, приложение предлагает максимальную гибкость для любых нужд.
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+# Импорт библиотек:
+`import tkinter as tk`
+`from tkinter import filedialog, messagebox`
+`from PIL import Image, ImageDraw`
+`import imageio`
+`import random`
+`import os`
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
+# Для работы программы используется несколько ключевых библиотек:
+Tkinter — для создания графического интерфейса.
+PIL (Python Imaging Library) — для работы с изображениями, в частности для рисования пикселей.
+Imageio — для создания и сохранения анимации в формате GIF.
+Random — для генерации случайных цветов пикселей.
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+Функция создания пиксельного изображения:
+`
+def create_pixel_image(width, height, pixel_size):
+    image = Image.new('RGB', (width * pixel_size, height * pixel_size), color='white')
+    draw = ImageDraw.Draw(image)
+    for y in range(height):
+        for x in range(width):
+            color = tuple(random.randint(0, 255) for _ in range(3))  # случайный цвет
+            draw.rectangle([x * pixel_size, y * pixel_size, (x + 1) * pixel_size, (y + 1) * pixel_size], fill=color)
+    return image
+`
+# Эта функция создаёт изображение с заданными параметрами:
+width и height — ширина и высота в пикселях.
+pixel_size — размер каждого пикселя (который на самом деле является прямоугольником на изображении).
+Каждый пиксель рисуется случайным цветом, что создает разнообразие и уникальность для каждого кадра.
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-cover/
+# Функция для создания анимации (GIF)
 
-# Translations
-*.mo
-*.pot
+`
+def create_animated_gif(width, height, pixel_size, duration, frames, quality):
+    images = []
+    for _ in range(frames):
+        img = create_pixel_image(width, height, pixel_size)
+        images.append(img)
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
+    # Путь сохранения
+    gif_path = save_path.get()
+    if not gif_path:
+        messagebox.showerror("Ошибка", "Путь для сохранения не выбран!")
+        return
 
-# Flask stuff:
-instance/
-.webassets-cache
+    # Сохранение GIF с учётом качества
+    if quality == 'Высокое':
+        imageio.mimsave(gif_path, images, duration=duration, quality=100)
+    elif quality == 'Среднее':
+        imageio.mimsave(gif_path, images, duration=duration, quality=50)
+    else:  # Низкое качество
+        imageio.mimsave(gif_path, images, duration=duration, quality=10)
 
-# Scrapy stuff:
-.scrapy
+    return gif_path
+`
 
-# Sphinx documentation
-docs/_build/
+# Эта функция генерирует анимированный GIF:
+Создаются несколько кадров (указано количество через frames).
+Каждый кадр — это новое случайное пиксельное изображение.
+GIF сохраняется с учетом указанного качества и длительности кадров.
 
-# PyBuilder
-.pybuilder/
-target/
+# Качество анимации можно настроить с тремя уровнями:
+Высокое — для четких, качественных изображений.
+Среднее — баланс между качеством и размером файла.
+Низкое — для уменьшения размера файла (идеально для веб-использования).
 
-# Jupyter Notebook
-.ipynb_checkpoints
+# Функция обработки кнопки "Создать"
+`
+def on_create():
+    try:
+        width = int(width_entry.get())
+        height = int(height_entry.get())
+        pixel_size = int(pixel_size_entry.get())
+        duration = float(duration_entry.get())
+        frames = int(frames_entry.get())
+        quality = quality_var.get()
 
-# IPython
-profile_default/
-ipython_config.py
+        if width <= 0 or height <= 0 or pixel_size <= 0 or duration <= 0 or frames <= 0:
+            raise ValueError("Все значения должны быть положительными.")
 
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
+        gif_path = create_animated_gif(width, height, pixel_size, duration, frames, quality)
+        if gif_path:
+            messagebox.showinfo("Готово", f"GIF успешно создан и сохранён как {gif_path}")
+    except ValueError as e:
+        messagebox.showerror("Ошибка", f"Неверные данные: {str(e)}")
+    except Exception as e:
+        messagebox.showerror("Ошибка", f"Произошла ошибка: {str(e)}")
+`
+# Эта функция управляет процессом создания GIF. 
+Она:
+Считывает данные с графического интерфейса (ширина, высота, размер пикселей и т.д.).
+Проверяет, что все значения положительные.
+Генерирует GIF с помощью функции create_animated_gif.
+Если всё прошло успешно, выводится сообщение с информацией о том, где был сохранён файл.
 
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
+# Выбор пути сохранения:
+`
+def choose_save_path():
+    file_path = filedialog.asksaveasfilename(defaultextension='.gif', filetypes=[("GIF Files", "*.gif")])
+    if file_path:
+        save_path.set(file_path)
+`
+Эта функция позволяет пользователю выбрать, куда сохранить созданный GIF-файл. Открывается стандартный диалог сохранения, и путь сохраняется в переменной save_path.
 
-# UV
-#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#uv.lock
-
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
-
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#pdm.lock
-#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
-#   in version control.
-#   https://pdm.fming.dev/latest/usage/project/#working-with-version-control
-.pdm.toml
-.pdm-python
-.pdm-build/
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
-
-# Ruff stuff:
-.ruff_cache/
-
-# PyPI configuration file
-.pypirc
+# Преимущества скрипта
+Простота использования: благодаря графическому интерфейсу пользователи легко могут настроить параметры GIF, даже если не имеют опыта работы с кодом.
+# Гибкость: можно изменять размеры, количество кадров, длительность и качество, что дает пользователю возможность адаптировать GIF под свои нужды.
+# Производительность: генерация случайных цветов пикселей делает каждое изображение уникальным, а анимация выглядит динамично и красочно.
