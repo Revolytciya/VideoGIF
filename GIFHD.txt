@@ -1,0 +1,186 @@
+# pyinstaller --onefile --noconsole --icon=icon.ico GIFHD.py
+
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
+from PIL import Image
+import numpy as np
+import os
+import asyncio
+import logging
+import concurrent.futures
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+
+class NoiseGIFGenerator:
+    def __init__(self, width, height, frames, duration, pixel_size, output_path):
+        self.width = width
+        self.height = height
+        self.frames = frames
+        self.duration = duration
+        self.pixel_size = pixel_size
+        self.output_path = output_path
+        self.executor = concurrent.futures.ThreadPoolExecutor()
+
+    def create_noise_frame(self, index):
+        """Создание случайного цветного пиксельного кадра с заданным размером пикселя."""
+        try:
+            img = np.random.randint(0, 256, (self.height, self.width, 3), dtype=np.uint8)
+
+            # Применяем пиксельный размер
+            if self.pixel_size > 1:
+                img = img[::self.pixel_size, ::self.pixel_size]
+                img = np.repeat(np.repeat(img, self.pixel_size, axis=0), self.pixel_size, axis=1)
+
+            frame = Image.fromarray(img)
+            return frame
+        except Exception as e:
+            logging.error(f"Ошибка при создании кадра {index}: {e}")
+            return None
+
+    def create_gif(self):
+        """Создание GIF с цветным шумом."""
+        try:
+            frames = []
+            with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+                futures = [executor.submit(self.create_noise_frame, i) for i in range(self.frames)]
+                for future in concurrent.futures.as_completed(futures):
+                    frame = future.result()
+                    if frame:
+                        frames.append(frame)
+
+            if not frames:
+                raise ValueError("Не удалось создать кадры GIF")
+
+            frames[0].save(
+                self.output_path,
+                save_all=True,
+                append_images=frames[1:],
+                duration=self.duration,
+                loop=0
+            )
+            logging.info(f"GIF сохранен: {self.output_path}")
+            return self.output_path
+        except Exception as e:
+            logging.error(f"Ошибка при создании GIF: {e}")
+            return None
+
+
+class App:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("GIFHD")
+        self.root.geometry("250x350")
+
+        self.save_path = tk.StringVar()
+        self.resolution_var = tk.StringVar(value="1920x1080")
+        self.frames_var = tk.IntVar(value=30)
+        self.duration_var = tk.IntVar(value=100)
+        self.pixel_size_var = tk.IntVar(value=10)
+
+        self.setup_ui()
+
+    def setup_ui(self):
+        """Настройка интерфейса."""
+        tk.Label(self.root, text="Выбор разрешения:").pack()
+        self.resolution_menu = ttk.Combobox(
+            self.root,
+            values=["3840x2160", "2560x1440", "1920x1080", "1280x720", "640x480", "Другое"],
+            textvariable=self.resolution_var,
+            state="readonly"
+        )
+        self.resolution_menu.pack()
+        self.resolution_menu.bind("<<ComboboxSelected>>", self.toggle_custom_resolution)
+
+        self.custom_resolution_frame = tk.Frame(self.root)
+        tk.Label(self.custom_resolution_frame, text="Ширина:").pack(side=tk.LEFT)
+        self.custom_width_var = tk.StringVar()
+        tk.Entry(self.custom_resolution_frame, textvariable=self.custom_width_var, width=6).pack(side=tk.LEFT)
+        tk.Label(self.custom_resolution_frame, text="Высота:").pack(side=tk.LEFT)
+        self.custom_height_var = tk.StringVar()
+        tk.Entry(self.custom_resolution_frame, textvariable=self.custom_height_var, width=6).pack(side=tk.LEFT)
+
+        # Настройка размера пикселя
+        tk.Label(self.root, text="Размер пикселя (1-100):").pack()
+        tk.Scale(self.root, from_=1, to=100, orient="horizontal", variable=self.pixel_size_var, length=250).pack()
+
+        # Число кадров
+        tk.Label(self.root, text="Число кадров:").pack()
+        tk.Scale(self.root, from_=10, to=300, orient="horizontal", variable=self.frames_var, length=250).pack()
+
+        # Время показа кадра (мс)
+        tk.Label(self.root, text="Время показа кадра (мс):").pack()
+        tk.Scale(self.root, from_=10, to=500, orient="horizontal", variable=self.duration_var, length=250).pack()
+
+        # Выбор папки для сохранения
+        self.path_button = tk.Button(self.root, text="Выбрать папку", command=self.choose_save_path)
+        self.path_button.pack()
+        tk.Label(self.root, textvariable=self.save_path).pack()
+
+        # Кнопка для создания GIF
+        self.create_button = tk.Button(self.root, text="Создать GIF", command=self.start_generation)
+        self.create_button.pack()
+
+    def toggle_custom_resolution(self, event=None):
+        """Переключение между предустановленным и кастомным разрешением."""
+        if self.resolution_var.get() == "Другое":
+            self.custom_resolution_frame.pack()
+        else:
+            self.custom_resolution_frame.pack_forget()
+
+    def choose_save_path(self):
+        """Выбор папки для сохранения."""
+        folder = filedialog.askdirectory()
+        if folder:
+            self.save_path.set(folder)
+
+    def get_settings(self):
+        """Получение настроек GIF."""
+        if self.resolution_var.get() == "Другое":
+            try:
+                width = int(self.custom_width_var.get())
+                height = int(self.custom_height_var.get())
+                if width <= 0 or height <= 0:
+                    raise ValueError("Неверные размеры!")
+            except ValueError:
+                messagebox.showerror("Ошибка", "Введите корректные значения ширины и высоты!")
+                return None
+        else:
+            width, height = map(int, self.resolution_var.get().split("x"))
+
+        frames = self.frames_var.get()
+        duration = self.duration_var.get()
+        pixel_size = self.pixel_size_var.get()
+
+        return width, height, frames, duration, pixel_size
+
+    def start_generation(self):
+        """Запуск генерации GIF."""
+        settings = self.get_settings()
+        if not settings:
+            return
+
+        width, height, frames, duration, pixel_size = settings
+        output_folder = self.save_path.get()
+        if not output_folder:
+            messagebox.showerror("Ошибка", "Выберите папку для сохранения!")
+            return
+
+        output_path = os.path.join(output_folder, "GIFHD.gif")
+        self.create_button.config(state='disabled')
+
+        generator = NoiseGIFGenerator(width, height, frames, duration, pixel_size, output_path)
+        asyncio.run(self.run_task_async(generator))
+
+    async def run_task_async(self, generator):
+        """Асинхронный запуск процесса генерации."""
+        output_path = await asyncio.to_thread(generator.create_gif)
+        if output_path:
+            messagebox.showinfo("Готово!", f"GIF успешно создан: {output_path}")
+            self.create_button.config(state='normal')
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = App(root)
+    root.mainloop()
